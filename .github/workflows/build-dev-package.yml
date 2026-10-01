@@ -1,0 +1,45 @@
+name: Build DBU DEV package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.build-dev/**'
+      - '.github/workflows/build-dev-package.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch current DEV package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/dbu-dev-package
+          mkdir -p /tmp/dbu-dev-package
+          unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-dev-package
+          cp .build-dev/scripts/combat/duel-core.js /tmp/dbu-dev-package/scripts/combat/duel-core.js
+          cp .build-dev/package-module.json /tmp/dbu-dev-package/module.json
+          cp .build-dev/public-module.json dev/module.json
+          rm -f dev/dbu-automation-dev.zip
+          (cd /tmp/dbu-dev-package && zip -qr "$GITHUB_WORKSPACE/dev/dbu-automation-dev.zip" .)
+          unzip -t dev/dbu-automation-dev.zip >/dev/null
+
+      - name: Publish DEV package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dev/module.json dev/dbu-automation-dev.zip
+          git rm -rf .build-dev
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "release: publish DBU Automation DEV v1.8.13 [skip ci]"
+          git push

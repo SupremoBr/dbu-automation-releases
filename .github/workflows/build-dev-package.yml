@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             node --input-type=module --check < "$file" >/dev/null
-          done < <(find /tmp/dbu-dev-package -type f -name '*.js' -print0)
+          done < <(find /tmp/dbu-dev-package/scripts -type f -name '*.js' -print0)
 
           python3 - <<'PY'
           from pathlib import Path

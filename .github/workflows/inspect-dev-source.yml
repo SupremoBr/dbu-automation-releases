@@ -1,0 +1,35 @@
+name: Inspect current DEV source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.inspect-request/**'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract current DEV standard-actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/dbu-current
+          mkdir -p /tmp/dbu-current .inspect
+          unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-current
+          test -f /tmp/dbu-current/scripts/standard-actions.js
+          cp /tmp/dbu-current/scripts/standard-actions.js .inspect/standard-actions.js
+      - name: Commit extracted source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .inspect/standard-actions.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: snapshot current DEV standard-actions [skip ci]"
+          git push

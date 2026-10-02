@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.build-dev/**'
-      - '.github/workflows/build-dev-package.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -23,9 +23,48 @@ jobs:
           rm -rf /tmp/dbu-dev-package
           mkdir -p /tmp/dbu-dev-package
           unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-dev-package
-          cp .build-dev/scripts/combat/duel-core.js /tmp/dbu-dev-package/scripts/combat/duel-core.js
+
+          if [ -d .build-dev/overlay ]; then
+            rsync -a .build-dev/overlay/ /tmp/dbu-dev-package/
+          fi
+
           cp .build-dev/package-module.json /tmp/dbu-dev-package/module.json
           cp .build-dev/public-module.json dev/module.json
+
+      - name: Validate JavaScript and relative imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --input-type=module --check < "$file" >/dev/null
+          done < <(find /tmp/dbu-dev-package -type f -name '*.js' -print0)
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+          root = Path("/tmp/dbu-dev-package")
+          missing = []
+          pattern = re.compile(r'''(?:import|export)\s+(?:[^"'\n]+?\s+from\s+)?["'](\.[^"']+)["']''')
+          for file in root.rglob("*.js"):
+              text = file.read_text(encoding="utf-8")
+              for rel in pattern.findall(text):
+                  target = (file.parent / rel).resolve()
+                  if target.suffix:
+                      candidates = [target]
+                  else:
+                      candidates = [Path(str(target) + ".js"), target / "index.js"]
+                  if not any(p.exists() for p in candidates):
+                      missing.append(f"{file.relative_to(root)} -> {rel}")
+          if missing:
+              print("Missing relative imports:")
+              print("\n".join(missing))
+              sys.exit(1)
+          PY
+
+      - name: Rebuild and verify ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
           rm -f dev/dbu-automation-dev.zip
           (cd /tmp/dbu-dev-package && zip -qr "$GITHUB_WORKSPACE/dev/dbu-automation-dev.zip" .)
           unzip -t dev/dbu-automation-dev.zip >/dev/null
@@ -34,6 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("dev/module.json"))["version"])')"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add dev/module.json dev/dbu-automation-dev.zip
@@ -41,5 +81,5 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "release: publish DBU Automation DEV v1.8.13 [skip ci]"
+          git commit -m "release: publish DBU Automation DEV v${VERSION} [skip ci]"
           git push

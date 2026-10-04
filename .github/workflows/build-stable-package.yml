@@ -1,0 +1,97 @@
+name: Build DBU Stable package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.build-stable/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Stable from current DEV package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/dbu-stable-package
+          mkdir -p /tmp/dbu-stable-package
+          unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-stable-package
+
+          if [ -d .build-stable/overlay ]; then
+            rsync -a .build-stable/overlay/ /tmp/dbu-stable-package/
+          fi
+
+          cp .build-stable/package-module.json /tmp/dbu-stable-package/module.json
+          cp .build-stable/public-module.json stable/module.json
+
+      - name: Validate Stable JavaScript and localization
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' file; do
+            node --input-type=module --check < "$file" >/dev/null
+          done < <(find /tmp/dbu-stable-package/scripts -type f -name '*.js' -print0)
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re, sys
+
+          root = Path("/tmp/dbu-stable-package")
+          module = json.loads((root / "module.json").read_text(encoding="utf-8"))
+
+          assert module["id"] == "dbu-automation"
+          assert module["version"] == "1.9.0"
+
+          languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
+          assert languages.get("pt-BR") == "lang/pt-BR.json"
+          assert languages.get("en") == "lang/en.json"
+
+          for path in languages.values():
+            json.loads((root / path).read_text(encoding="utf-8"))
+
+          missing = []
+          pattern = re.compile(r'''(?:import|export)\s+(?:[^"'\n]+?\s+from\s+)?["'](\.[^"']+)["']''')
+          for file in (root / "scripts").rglob("*.js"):
+              text = file.read_text(encoding="utf-8")
+              for rel in pattern.findall(text):
+                  target = (file.parent / rel).resolve()
+                  candidates = [target] if target.suffix else [Path(str(target) + ".js"), target / "index.js"]
+                  if not any(p.exists() for p in candidates):
+                      missing.append(f"{file.relative_to(root)} -> {rel}")
+
+          if missing:
+              print("Missing relative imports:")
+              print("\n".join(missing))
+              sys.exit(1)
+          PY
+
+      - name: Rebuild and verify Stable ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f stable/dbu-automation.zip
+          (cd /tmp/dbu-stable-package && zip -qr "$GITHUB_WORKSPACE/stable/dbu-automation.zip" .)
+          unzip -t stable/dbu-automation.zip >/dev/null
+
+      - name: Publish Stable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("stable/module.json"))["version"])')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stable/module.json stable/dbu-automation.zip
+          git rm -rf .build-stable
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "release: publish DBU Automation Stable v${VERSION} [skip ci]"
+          git push

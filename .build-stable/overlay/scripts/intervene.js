@@ -998,3 +998,263 @@ async function startReflect(message, reflectorId) {
   const normalCost = 5 * tier;
   const options = targets.map(({ actor }) =>
     `<option value="${actor.id}" ${actor.id === attack.attackerId ? "selected" : ""}>${esc(actor.name)}${actor.id === attack.attackerId ? " (atacante original)" : ""}</option>`
+  ).join("");
+
+  const choice = await Dialog.wait({
+    title: `${reflector.name} — Reflect`,
+    content: `
+      <div class="dbu-auto-window"><div class="dbu-card-body">
+        <p><b>Reflect</b> — Out-of-Sequence Maneuver</p>
+        <div class="form-group"><label>Alvo</label><select id="dbu-reflect-target" style="width:100%">${options}</select></div>
+        <p>Custo normal: <b>5(T) = ${normalCost} KP / Capacity</b></p>
+        <label style="display:flex;gap:6px;align-items:center"><input id="dbu-reflect-free" type="checkbox"> Reflect gratuito (ex.: Reflective Coating)</label>
+        <label style="display:flex;gap:6px;align-items:center;margin-top:5px"><input id="dbu-reflect-half" type="checkbox"> Metade do custo por Trait/efeito</label>
+      </div></div>
+    `,
+    buttons: {
+      ok: {
+        label: "REFLECT",
+        callback: html => ({
+          targetId: String(html.find("#dbu-reflect-target").val() || ""),
+          free: !!html.find("#dbu-reflect-free").prop("checked"),
+          half: !!html.find("#dbu-reflect-half").prop("checked")
+        })
+      },
+      cancel: { label: "Cancelar", callback: () => null }
+    },
+    default: "ok",
+    close: () => null
+  });
+  if (!choice) return;
+
+  const target = game.actors.get(choice.targetId);
+  if (!target) return ui.notifications.error("Alvo do Reflect não encontrado.");
+
+  const cost = choice.free ? 0 : (choice.half ? Math.ceil(normalCost / 2) : normalCost);
+  await runCombatVisual(reflector, "reflect", "start", {
+    message, attack, target, targetToken: getTokenForActor(target.id), reflectCost: cost
+  });
+  if (cost > 0) {
+    const payHelper = globalThis.DBU?.payKiAndCapacity;
+    if (typeof payHelper !== "function") {
+      return ui.notifications.error("DBU Reflect: helper de pagamento Ki/Capacity não está disponível. Reinicie o Foundry e rode o Diagnóstico.");
+    }
+    const payment = await payHelper(reflector, cost, "Reflect");
+    if (!payment?.ok) return;
+  }
+
+  const strikeInfo = await reflectStrikeFormula(reflector, attack);
+  const strike = await rollWithCrit(reflector, strikeInfo.formula, {
+    ct: strikeInfo.ct,
+    botchThreshold: 1,
+    label: "Reflect Strike"
+  });
+
+  const woundSource = game.actors.get(
+    attack.woundSourceActorId || attack.originalWoundSourceActorId || attack.attackerId
+  );
+  if (!woundSource) return ui.notifications.error("Atacante original não encontrado para o Urgent Wound.");
+
+  const urgentFormula = urgentWoundFormulaFromAttack(attack);
+  const wound = await rollWithCrit(woundSource, urgentFormula, {
+    ct: Number(attack.woundCT || 10),
+    botchThreshold: Number(attack.woundBotchThreshold ?? 1),
+    label: "Urgent Wound"
+  });
+
+  await recordReflect(reflector, attack.attackName, cost);
+  await setReflectUsage(reflector, message.id, {
+    used: true,
+    usedAt: Date.now(),
+    targetId: target.id,
+    cost
+  });
+
+  await createReflectAttackCard({
+    sourceMessage: message,
+    reflector,
+    target,
+    attack,
+    strike,
+    wound,
+    urgentFormula,
+    reflectCost: cost
+  });
+
+  await runCombatVisual(reflector, "reflect", "launch", {
+    message, attack, target, targetToken: getTokenForActor(target.id),
+    strike, wound, urgentFormula, reflectCost: cost, success: true
+  });
+
+  await requestGM({
+    type: "dbuReflectUsedV14",
+    messageId: message.id,
+    reflectorId: reflector.id,
+    targetId: target.id,
+    source: "reflect"
+  });
+
+  ui.notifications.info(`${reflector.name} refletiu ${attack.attackName || "o ataque"} contra ${target.name}.`);
+}
+
+function renderIntervene(message, html) {
+  const attack = attackData(message);
+  if (!attack || !message.getFlag("world", "dbuCombatRevealed")) return;
+
+  const states = message.getFlag("world", "dbuDefenseStates") || {};
+  const reflectUses = message.getFlag("world", "dbuReflectUses") || {};
+  const root = html instanceof HTMLElement ? html : (html?.[0] || html);
+  if (!root?.querySelector) return;
+
+  let pendingCount = 0;
+
+  for (const [targetId, state] of Object.entries(states)) {
+    const target = game.actors.get(targetId);
+    if (!target) continue;
+    const safeId = String(targetId).replace(/[^a-zA-Z0-9_-]/g, "");
+    const row = root.querySelector(`[data-target-row="${safeId}"]`);
+    if (!row) continue;
+
+    row.querySelectorAll(".dbu-intervene-v14-panel").forEach(el => el.remove());
+
+    const panel = document.createElement("div");
+    panel.className = "dbu-intervene-v14-panel";
+    panel.style.marginTop = "7px";
+
+    if (state?.damagePending && !state?.damageResolved) {
+      pendingCount++;
+      const status = state?.intervention?.status || "pending";
+
+      if (status === "pending") {
+        const candidates = eligibleInterveners(message, target);
+        const canDecline = game.user.isGM || target.isOwner;
+        const actions = [];
+
+        if (candidates.length) {
+          actions.push(`<button type="button" class="dbu-pay-btn" data-dbu-intervene-v14="1" data-message-id="${message.id}" data-target-id="${targetId}"><i class="fas fa-people-arrows"></i> Intervene</button>`);
+        }
+        if (canDecline) {
+          actions.push(`<button type="button" class="dbu-pay-btn" data-dbu-no-intervene-v14="1" data-message-id="${message.id}" data-target-id="${targetId}"><i class="fas fa-forward"></i> Sem Intervene</button>`);
+        }
+
+        panel.innerHTML = `
+          <div class="dbu-attack-buffs"><strong>⚠ HIT — dano pendente para Intervene</strong></div>
+          ${actions.length ? `<div class="dbu-attack-actions" style="display:flex;flex-wrap:wrap;gap:4px">${actions.join("")}</div>` : ""}
+        `;
+      } else {
+        panel.innerHTML = `<div class="dbu-attack-buffs"><strong>⏳ ${esc(interventionStatusText(state))}</strong></div>`;
+      }
+    }
+
+    const parryReflect = state?.hiddenOutcome?.defenseType === "parry"
+      && !!state.hiddenOutcome?.success
+      && canReflect(attack)
+      && !reflectUses?.[targetId]?.used;
+
+    if (parryReflect && (game.user.isGM || target.isOwner)) {
+      panel.innerHTML += `
+        <div class="dbu-attack-actions" style="margin-top:5px">
+          <button type="button" class="dbu-pay-btn" data-dbu-reflect-v14="1" data-message-id="${message.id}" data-reflector-id="${targetId}"><i class="fas fa-reply"></i> Reflect</button>
+        </div>
+        <div class="dbu-penalty-why">Parry bem-sucedido: ataque Energy/Magic sem AoE pode ser refletido.</div>
+      `;
+    }
+
+    if (panel.innerHTML.trim()) row.appendChild(panel);
+  }
+
+  root.querySelectorAll(".dbu-deflect-reflect-v14-panel").forEach(el => el.remove());
+  const deflectReflect = message.getFlag("world", "dbuDeflectReflectOpportunity") || null;
+  if (deflectReflect?.reflectorId && !reflectUses?.[deflectReflect.reflectorId]?.used) {
+    const reflector = game.actors.get(deflectReflect.reflectorId);
+    if (reflector && (game.user.isGM || reflector.isOwner)) {
+      const body = root.querySelector(".dbu-card-body") || root;
+      const panel = document.createElement("div");
+      panel.className = "dbu-deflect-reflect-v14-panel dbu-attack-actions";
+      panel.style.marginTop = "8px";
+      panel.innerHTML = `<button type="button" class="dbu-pay-btn" data-dbu-reflect-v14="1" data-message-id="${message.id}" data-reflector-id="${reflector.id}"><i class="fas fa-reply"></i> Reflect após Deflect</button>`;
+      body.appendChild(panel);
+    }
+  }
+
+  const statusNode = root.querySelector("[data-dbu-secret-wait-status]");
+  if (statusNode && pendingCount > 0) {
+    statusNode.innerHTML = `<strong>⚠ Resultados revelados — ${pendingCount} impacto(s) aguardando Intervene antes do dano.</strong>`;
+  } else if (statusNode && message.getFlag("world", "dbuIntervenePhaseComplete")) {
+    statusNode.innerHTML = `<strong>✅ Resultados revelados — fase de Intervene concluída.</strong>`;
+  }
+}
+
+async function clickHandler(event) {
+  const interveneButton = event.target.closest?.("[data-dbu-intervene-v14]");
+  const declineButton = event.target.closest?.("[data-dbu-no-intervene-v14]");
+  const reflectButton = event.target.closest?.("[data-dbu-reflect-v14]");
+  const button = interveneButton || declineButton || reflectButton;
+  if (!button) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  const messageId = button.dataset.messageId
+    || button.closest?.("[data-message-id]")?.dataset?.messageId;
+  const message = messageId ? game.messages.get(messageId) : null;
+  if (!message) return ui.notifications.error("Mensagem de ataque não encontrada.");
+
+  button.disabled = true;
+  try {
+    if (interveneButton) {
+      await startIntervene(message, button.dataset.targetId);
+    } else if (declineButton) {
+      await declineIntervene(message, button.dataset.targetId);
+    } else if (reflectButton) {
+      await startReflect(message, button.dataset.reflectorId);
+    }
+  } catch (error) {
+    console.error("DBU | Intervene/Reflect click:", error);
+    ui.notifications.error(error?.message || "Erro executando Intervene/Reflect.");
+  } finally {
+    // Se a carta não foi atualizada (cancelamento), libera novamente.
+    if (button.isConnected) button.disabled = false;
+  }
+}
+
+export function initializeInterveneAutomation() {
+  const old = globalThis.DBU_INTERVENE_AUTOMATION;
+  if (old?.clickHandler) {
+    try { document.removeEventListener("click", old.clickHandler, true); } catch {}
+  }
+  if (old?.renderHookId) {
+    try { Hooks.off("renderChatMessage", old.renderHookId); } catch {}
+  }
+  if (old?.socketHandler) {
+    try { game.socket.off(DBU_SOCKET, old.socketHandler); } catch {}
+  }
+
+  const renderHookId = Hooks.on("renderChatMessage", (message, html) => {
+    try { renderIntervene(message, html); }
+    catch (error) { console.error("DBU | Intervene render:", error); }
+  });
+
+  const socketHandler = async data => {
+    if (!data || !["dbuInterveneResolveV14", "dbuReflectUsedV14"].includes(data.type)) return;
+    if (!isPrimaryGM()) return;
+    try { await handleGMRequest(data); }
+    catch (error) { console.error("DBU | Intervene socket:", error); }
+  };
+
+  game.socket.on(DBU_SOCKET, socketHandler);
+  document.addEventListener("click", clickHandler, true);
+
+  globalThis.DBU_INTERVENE_AUTOMATION = {
+    version: VERSION,
+    initialized: true,
+    clickHandler,
+    renderHookId,
+    socketHandler
+  };
+
+  console.log(`DBU Automation v${VERSION} | Intervene + Reflect ativo`);
+}
+
+export { startIntervene, startReflect, eligibleInterveners, canReflect };

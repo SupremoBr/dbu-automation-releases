@@ -1,0 +1,30 @@
+name: Inspect Stable runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Stable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/dbu-stable
+          mkdir -p /tmp/dbu-stable
+          unzip -q stable/dbu-automation.zip -d /tmp/dbu-stable
+          echo "== manifest =="
+          cat /tmp/dbu-stable/module.json
+          echo "== dev namespace refs =="
+          grep -R -n --include='*.js' 'dbu-automation-dev' /tmp/dbu-stable/scripts || true
+          echo "== stable namespace refs =="
+          grep -R -n --include='*.js' 'const MODULE_ID = "dbu-automation"' /tmp/dbu-stable/scripts || true
+          echo "== attack capture =="
+          grep -n -E 'watchNativeAttackMessage|_onRollTrackerAttack|não gerou a rolagem|attackReveal' /tmp/dbu-stable/scripts/attack.js || true
+          echo "== HUD encounter dependencies =="
+          grep -n -E 'getCombatantTeam|combatantForActor|renderCombatHud|resolveHudSubject' /tmp/dbu-stable/scripts/combat-hud.js || true

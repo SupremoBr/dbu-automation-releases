@@ -1,8 +1,8 @@
 {
   "id": "dbu-automation",
   "title": "DBU Automation",
-  "description": "DBU Automation v1.9.1 — hotfix da manutenção de Signature Aura no player OWNER, com Português (Brasil) e English, para DBU 0.9.2.",
-  "version": "1.9.1",
+  "description": "DBU Automation v1.9.2 — hotfix de HUD/Times em Encounter e tratamento de ataques bloqueados pelo DBU 0.9.2, com Português (Brasil) e English.",
+  "version": "1.9.2",
   "authors": [
     {
       "name": "DBU Automation"

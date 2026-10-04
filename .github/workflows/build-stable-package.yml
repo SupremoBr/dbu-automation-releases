@@ -16,13 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Stable from current DEV package
+      - name: Build Stable hotfix from current Stable package
         shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/dbu-stable-package
           mkdir -p /tmp/dbu-stable-package
-          unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-stable-package
+          unzip -q stable/dbu-automation.zip -d /tmp/dbu-stable-package
 
           if [ -d .build-stable/overlay ]; then
             rsync -a .build-stable/overlay/ /tmp/dbu-stable-package/

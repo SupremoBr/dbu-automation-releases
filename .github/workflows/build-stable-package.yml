@@ -48,7 +48,8 @@ jobs:
           module = json.loads((root / "module.json").read_text(encoding="utf-8"))
 
           assert module["id"] == "dbu-automation"
-          assert module["version"] == "1.9.1"
+          expected = json.loads(Path(".build-stable/package-module.json").read_text(encoding="utf-8"))["version"]
+          assert module["version"] == expected
 
           languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
           assert languages.get("pt-BR") == "lang/pt-BR.json"

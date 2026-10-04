@@ -58,6 +58,18 @@ jobs:
           for path in languages.values():
             json.loads((root / path).read_text(encoding="utf-8"))
 
+          forbidden = []
+          for file in (root / "scripts").rglob("*.js"):
+              text = file.read_text(encoding="utf-8")
+              if 'const MODULE_ID = "dbu-automation-dev"' in text:
+                  forbidden.append(f"{file.relative_to(root)}: hardcoded DEV MODULE_ID")
+              if 'const DBU_SOCKET = "module.dbu-automation-dev"' in text:
+                  forbidden.append(f"{file.relative_to(root)}: hardcoded DEV socket")
+          if forbidden:
+              print("Forbidden DEV namespace references in Stable package:")
+              print("\n".join(forbidden))
+              sys.exit(1)
+
           missing = []
           pattern = re.compile(r'''(?:import|export)\s+(?:[^"'\n]+?\s+from\s+)?["'](\.[^"']+)["']''')
           for file in (root / "scripts").rglob("*.js"):

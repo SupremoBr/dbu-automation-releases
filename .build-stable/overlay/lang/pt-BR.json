@@ -1,0 +1,7 @@
+{
+  "DBUA.Language.Name": "DBU Automation — Idioma",
+  "DBUA.Language.Hint": "Escolha o idioma da interface do módulo. Automático usa o idioma configurado no Foundry.",
+  "DBUA.Language.Auto": "Automático",
+  "DBUA.Language.PtBR": "Português (Brasil)",
+  "DBUA.Language.En": "Inglês"
+}

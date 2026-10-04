@@ -2,6 +2,10 @@ name: Inspect Stable runtime
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.inspect-stable-trigger/**'
 
 permissions:
   contents: read

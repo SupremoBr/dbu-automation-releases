@@ -28,6 +28,13 @@ jobs:
             rsync -a .build-stable/overlay/ /tmp/dbu-stable-package/
           fi
 
+          if [ -f .build-stable/remove-files.txt ]; then
+            while IFS= read -r rel || [ -n "$rel" ]; do
+              [ -z "$rel" ] && continue
+              rm -f "/tmp/dbu-stable-package/$rel"
+            done < .build-stable/remove-files.txt
+          fi
+
           cp .build-stable/package-module.json /tmp/dbu-stable-package/module.json
           cp .build-stable/public-module.json stable/module.json
 
@@ -53,7 +60,7 @@ jobs:
 
           languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
           assert languages.get("pt-BR") == "lang/pt-BR.json"
-          assert languages.get("en") == "lang/en.json"
+          assert "en" not in languages
 
           for path in languages.values():
             json.loads((root / path).read_text(encoding="utf-8"))

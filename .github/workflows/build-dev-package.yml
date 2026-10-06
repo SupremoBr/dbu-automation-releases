@@ -16,13 +16,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch current DEV package
+      - name: Build DEV from current Stable package
         shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/dbu-dev-package
           mkdir -p /tmp/dbu-dev-package
-          unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-dev-package
+          unzip -q stable/dbu-automation.zip -d /tmp/dbu-dev-package
+
+          # Convert only hardcoded package namespaces. Dynamic channel
+          # detection remains untouched.
+          while IFS= read -r -d '' file; do
+            sed -i 's/const MODULE_ID = "dbu-automation";/const MODULE_ID = "dbu-automation-dev";/g' "$file"
+            sed -i 's/const DBU_SOCKET = "module.dbu-automation";/const DBU_SOCKET = "module.dbu-automation-dev";/g' "$file"
+          done < <(find /tmp/dbu-dev-package/scripts -type f -name '*.js' -print0)
 
           if [ -d .build-dev/overlay ]; then
             rsync -a .build-dev/overlay/ /tmp/dbu-dev-package/
@@ -43,6 +50,28 @@ jobs:
           from pathlib import Path
           import re, sys
           root = Path("/tmp/dbu-dev-package")
+
+          module = __import__("json").loads((root / "module.json").read_text(encoding="utf-8"))
+          assert module["id"] == "dbu-automation-dev"
+          expected = __import__("json").loads(Path(".build-dev/package-module.json").read_text(encoding="utf-8"))["version"]
+          assert module["version"] == expected
+
+          languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
+          assert languages.get("pt-BR") == "lang/pt-BR.json"
+          assert "en" not in languages
+
+          forbidden = []
+          for file in (root / "scripts").rglob("*.js"):
+              text = file.read_text(encoding="utf-8")
+              if 'const MODULE_ID = "dbu-automation";' in text:
+                  forbidden.append(f"{file.relative_to(root)}: hardcoded Stable MODULE_ID")
+              if 'const DBU_SOCKET = "module.dbu-automation";' in text:
+                  forbidden.append(f"{file.relative_to(root)}: hardcoded Stable socket")
+          if forbidden:
+              print("Forbidden Stable namespace references in DEV package:")
+              print("\n".join(forbidden))
+              sys.exit(1)
+
           missing = []
           pattern = re.compile(r'''(?:import|export)\s+(?:[^"'\n]+?\s+from\s+)?["'](\.[^"']+)["']''')
           for file in root.rglob("*.js"):

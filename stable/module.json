@@ -1,8 +1,8 @@
 {
   "id": "dbu-automation",
   "title": "DBU Automation",
-  "description": "DBU Automation v1.9.4 — cobertura ampliada da interface em English, mantendo Português (Brasil) e as regras DBU 0.9.2.",
-  "version": "1.9.4",
+  "description": "DBU Automation v1.9.5 — interface em Português (Brasil), mantendo os hotfixes de Attack, HUD, Auras e combate para DBU 0.9.2.",
+  "version": "1.9.5",
   "authors": [
     {
       "name": "DBU Automation"
@@ -27,11 +27,6 @@
       "lang": "pt-BR",
       "name": "Português (Brasil)",
       "path": "lang/pt-BR.json"
-    },
-    {
-      "lang": "en",
-      "name": "English",
-      "path": "lang/en.json"
     }
   ],
   "url": "https://github.com/SupremoBr/dbu-automation-releases",

@@ -1,0 +1,43 @@
+{
+  "id": "dbu-automation",
+  "title": "DBU Automation",
+  "description": "DBU Automation v1.9.5 — interface em Português (Brasil), mantendo os hotfixes de Attack, HUD, Auras e combate para DBU 0.9.2.",
+  "version": "1.9.5",
+  "authors": [
+    {
+      "name": "DBU Automation"
+    }
+  ],
+  "compatibility": {
+    "minimum": "12",
+    "verified": "13"
+  },
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "scripts": [
+    "scripts/bootstrap.js"
+  ],
+  "socket": true,
+  "styles": [
+    "styles/dbu-automation.css"
+  ],
+  "languages": [
+    {
+      "lang": "pt-BR",
+      "name": "Português (Brasil)",
+      "path": "lang/pt-BR.json"
+    }
+  ],
+  "url": "https://github.com/SupremoBr/dbu-automation-releases",
+  "manifest": "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/stable/module.json",
+  "download": "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/stable/dbu-automation.zip",
+  "relationships": {
+    "conflicts": [
+      {
+        "id": "dbu-automation-dev",
+        "type": "module"
+      }
+    ]
+  }
+}

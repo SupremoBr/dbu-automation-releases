@@ -90,6 +90,45 @@ jobs:
               sys.exit(1)
           PY
 
+      - name: Smoke-test Synthetic Actor identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/dbu-dev-package/scripts/core/token-identity.js ]; then exit 0; fi
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const source = readFileSync('/tmp/dbu-dev-package/scripts/core/token-identity.js', 'utf8');
+          const identity = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+          const scene = { id: 'scene-1' };
+          const base = { id: 'shared-actor', uuid: 'Actor.shared-actor' };
+          function makeToken(id) {
+            const document = { documentName: 'Token', id, parent: scene, actorLink: false };
+            const actor = { id: base.id, uuid: `Scene.scene-1.Token.${id}.Actor.shared-actor`, token: document };
+            const token = { id, document, actor };
+            document.actor = actor;
+            return token;
+          }
+          const one = makeToken('monster-1');
+          const two = makeToken('monster-2');
+          const tokens = new Map([[one.id, one], [two.id, two]]);
+          globalThis.canvas = { scene, tokens: { get: id => tokens.get(id), placeables: [one, two], controlled: [] } };
+          globalThis.game = { scenes: { get: id => id === scene.id ? { tokens: { get: k => tokens.get(k)?.document } } : null } };
+          const c1 = { id: 'combat-1', tokenId: one.id, actor: one.actor };
+          const c2 = { id: 'combat-2', tokenId: two.id, actor: two.actor };
+          const combat = { scene, combatants: { contents: [c1, c2] } };
+          assert.notEqual(identity.actorIdentity(one.actor), identity.actorIdentity(two.actor));
+          assert.equal(identity.sameToken(one, two), false);
+          assert.equal(identity.combatantForIdentity(two.actor, two, combat), c2);
+          assert.equal(identity.combatantForIdentity(one.actor, one, combat), c1);
+          assert.equal(identity.combatantForIdentity(base, null, combat), null);
+          assert.equal(identity.tokenForActor(base), null);
+          assert.equal(identity.tokenForActor(two.actor), two);
+          globalThis.canvas.tokens.controlled = [two];
+          assert.equal(identity.tokenForActor(base), two);
+          console.log('Token identity smoke tests: PASS');
+          JS
+
       - name: Rebuild and verify ZIP
         shell: bash
         run: |

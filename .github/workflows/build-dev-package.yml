@@ -149,10 +149,27 @@ jobs:
           states[oneRef.key].resolved = true;
           assert.equal(states[twoRef.key].resolved, false, 'two unlinked creatures need independent defenses');
           assert.equal(identity.attackTargetKeys({ targetActorIds: [base.id] }).length, 1, 'legacy actor-only cards stay readable');
+          assert.match(oneRef.key, /^[a-zA-Z0-9_-]+$/, 'Foundry flag keys must not contain update-path delimiters');
+          assert.match(twoRef.key, /^[a-zA-Z0-9_-]+$/, 'Foundry flag keys must be safe');
+          const three = makeToken('monster-3');
+          const threeRef = identity.participantReference(three.actor, three);
+          const all = { targetRefs: [oneRef, twoRef, threeRef] };
+          const pending = Object.fromEntries(identity.attackTargetKeys(all).map(k => [k, { resolved: false }]));
+          const progress = () => identity.attackTargetKeys(all).filter(k => pending[k].resolved).length;
+          pending[oneRef.key].resolved = true;
+          assert.equal(progress(), 1);
+          pending[twoRef.key].resolved = true;
+          assert.equal(progress(), 2);
+          pending[threeRef.key].resolved = true;
+          assert.equal(progress(), 3);
+          assert.equal(identity.attackTargetKeys(all).length, 3);
           const attackCore = readFileSync('/tmp/dbu-dev-package/scripts/attack.js', 'utf8');
           const revealCore = readFileSync('/tmp/dbu-dev-package/scripts/combat/reveal-core.js', 'utf8');
           assert(attackCore.includes('targetRefs: targetTokens'), 'attacks must write unique target refs');
           assert(revealCore.includes('return attackTargetKeys(attack);'), 'GM must count distinct target keys');
+          assert(revealCore.includes('const dbuDefenseCardQueues = new Map();'), 'GM card updates must use a queue');
+          assert(revealCore.includes('await dbuQueueDefenseCard(data);'), 'socket updates must serialize');
+          assert(revealCore.includes('await dbuQueueDefenseCard(payload);'), 'GM local updates must serialize');
           console.log('Two-clone defense smoke tests: PASS');
           console.log('Token identity smoke tests: PASS');
           JS

@@ -171,6 +171,29 @@ jobs:
           assert(revealCore.includes('await dbuQueueDefenseCard(data);'), 'socket updates must serialize');
           assert(revealCore.includes('await dbuQueueDefenseCard(payload);'), 'GM local updates must serialize');
           console.log('Two-clone defense smoke tests: PASS');
+          const paymentSource = readFileSync('/tmp/dbu-dev-package/scripts/core/payment-actor.js', 'utf8');
+          globalThis.__dbuaTestIdentity = identity;
+          const paymentCode = paymentSource.replace(
+            'import { resolveSceneToken, tokenForActor } from "./token-identity.js";',
+            'const { resolveSceneToken, tokenForActor } = globalThis.__dbuaTestIdentity;'
+          );
+          const payment = await import('data:text/javascript;base64,' + Buffer.from(paymentCode).toString('base64'));
+          globalThis.game.actors = { get: id => id === base.id ? base : null };
+          const messageFor = ref => ({
+            speaker: {},
+            getFlag: (scope, name) => scope === 'world' && name === 'dbuAttackPaymentRef' ? ref : null
+          });
+          assert.equal(payment.resolvePaymentActor(messageFor(oneRef), {actorId:base.id,payType:'combined'}), one.actor);
+          assert.equal(payment.resolvePaymentActor(messageFor(twoRef), {actorId:base.id,payType:'combined'}), two.actor);
+          assert.notEqual(payment.resolvePaymentActor(messageFor(twoRef), {actorId:base.id,payType:'combined'}), base);
+          assert.equal(payment.resolvePaymentActor({speaker:{scene:scene.id,token:two.id},getFlag:()=>null}, {actorId:base.id,payType:'draining'}), two.actor);
+          assert.equal(payment.resolvePaymentActor({speaker:{},getFlag:()=>null}, {actorId:base.id,payType:'combined'}), null,
+            'Unlinked clones with no source token must not charge the base Actor');
+          const bridge = readFileSync('/tmp/dbu-dev-package/scripts/bridge/native-dbu.js','utf8');
+          assert(bridge.includes('resolvePaymentActor(paymentMessage'), 'Native Pay handler must resolve token resources');
+          const transformCore = readFileSync('/tmp/dbu-dev-package/scripts/transformations.js','utf8');
+          assert(transformCore.includes('data-token-id="${esc(participant.tokenId || "")}"'), 'Graded transformation costs need token refs');
+          console.log('Two-clone Ki payment smoke tests: PASS');
           console.log('Token identity smoke tests: PASS');
           JS
 

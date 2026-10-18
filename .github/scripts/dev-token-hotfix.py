@@ -65,6 +65,12 @@ swap('const intervener = game.actors.get(resolution.intervenerId);',
      'const intervener = resolveParticipant(resolution.intervenerId, attack);', 2)
 swap('const reflector = game.actors.get(reflectorId);',
      'const reflector = typeof reflectorId === "object" ? reflectorId : resolveParticipant(reflectorId, attack);')
+swap('const attacker = game.actors.get(attack.attackerId);',
+     'const attacker = resolveParticipant(attack.attackerRef?.key || attack.attackerId, attack);', 1)
+swap('attacker: game.actors.get(attack.attackerId)',
+     'attacker: resolveParticipant(attack.attackerRef?.key || attack.attackerId, attack)')
+swap('await startReflect(message, intervener.id);',
+     'await startReflect(message, intervener);')
 
 swap('const valid = eligibleInterveners(message, target).some(entry => entry.actor.id === intervener.id);',
      'const valid = eligibleInterveners(message, target).some(entry => participantReference(entry.actor, entry.token).key === choice.actorId);')

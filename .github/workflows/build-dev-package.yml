@@ -136,6 +136,24 @@ jobs:
           assert.equal(identity.tokenForActor(two.actor), two);
           globalThis.canvas.tokens.controlled = [two];
           assert.equal(identity.tokenForActor(base), two);
+          const oneRef = identity.participantReference(one.actor, one);
+          const twoRef = identity.participantReference(two.actor, two);
+          const attack = { targetRefs: [oneRef, twoRef], targetActorIds: [base.id, base.id] };
+          assert.notEqual(oneRef.key, twoRef.key);
+          assert.equal(identity.attackTargetKeys(attack).length, 2);
+          assert.equal(identity.resolveParticipant(oneRef.key, attack), one.actor);
+          assert.equal(identity.resolveParticipant(twoRef.key, attack), two.actor);
+          assert.equal(identity.participantKeyForAttack(one.actor, attack), oneRef.key);
+          assert.equal(identity.participantKeyForAttack(two.actor, attack), twoRef.key);
+          const states = Object.fromEntries(identity.attackTargetKeys(attack).map(key => [key, { resolved: false }]));
+          states[oneRef.key].resolved = true;
+          assert.equal(states[twoRef.key].resolved, false, 'two unlinked creatures need independent defenses');
+          assert.equal(identity.attackTargetKeys({ targetActorIds: [base.id] }).length, 1, 'legacy actor-only cards stay readable');
+          const attackCore = readFileSync('/tmp/dbu-dev-package/scripts/attack.js', 'utf8');
+          const revealCore = readFileSync('/tmp/dbu-dev-package/scripts/combat/reveal-core.js', 'utf8');
+          assert(attackCore.includes('targetRefs: targetTokens'), 'attacks must write unique target refs');
+          assert(revealCore.includes('return attackTargetKeys(attack);'), 'GM must count distinct target keys');
+          console.log('Two-clone defense smoke tests: PASS');
           console.log('Token identity smoke tests: PASS');
           JS
 

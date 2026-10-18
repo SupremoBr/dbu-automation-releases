@@ -1,8 +1,8 @@
 {
   "id": "dbu-automation-dev",
   "title": "DBU Automation DEV",
-  "description": "DBU Automation v1.9.8 DEV — melhorias na identidade de tokens, manutenção de Aura e novo Round. Defesas de Synthetic Actors repetidos continuam em revisão (DBU 0.9.2).",
-  "version": "1.9.8",
+  "description": "DBU Automation v1.9.9 DEV — atualizador automático corrigido; identity de tokens, Aura e Round sob testes (DBU 0.9.2).",
+  "version": "1.9.9",
   "authors": [
     {
       "name": "DBU Automation"

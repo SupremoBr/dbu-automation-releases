@@ -56,7 +56,7 @@ swap('value="' + d + '{actor.id}"',
      'value="' + d + '{participantReference(actor, token).key}"', 2)
 
 swap('const target = game.actors.get(targetId);',
-     'const target = resolveParticipant(targetId, attackData(message));', 2)
+     'const target = resolveParticipant(targetId, attackData(message));', 4)
 swap('const target = game.actors.get(data.targetId);',
      'const target = resolveParticipant(data.targetId, attackData(message));')
 swap('const intervener = game.actors.get(choice.actorId);',

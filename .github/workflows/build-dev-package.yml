@@ -35,6 +35,10 @@ jobs:
             rsync -a .build-dev/overlay/ /tmp/dbu-dev-package/
           fi
 
+          # Patch full stable-base Intervene runtime without replacing it with
+          # the incomplete source snapshot. Abort on mismatched signatures.
+          python3 .github/scripts/dev-token-hotfix.py
+
           # Keep the installed package's update links identical to the
           # public manifest, otherwise Foundry cannot detect future updates.
           cp .build-dev/public-module.json /tmp/dbu-dev-package/module.json

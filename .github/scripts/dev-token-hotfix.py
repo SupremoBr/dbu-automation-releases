@@ -50,8 +50,10 @@ swap('const token = getTokenForActor(actor.id);','const token = getTokenForActor
 swap('const options = candidates.map(({ actor, distance }) => {',
      'const options = candidates.map(({ actor, token, distance }) => {')
 d = chr(36)
+swap('const options = targets.map(({ actor }) =>',
+     'const options = targets.map(({ actor, token }) =>')
 swap('value="' + d + '{actor.id}"',
-     'value="' + d + '{participantReference(actor, token).key}"', 1)
+     'value="' + d + '{participantReference(actor, token).key}"', 2)
 
 swap('const target = game.actors.get(targetId);',
      'const target = resolveParticipant(targetId, attackData(message));', 2)

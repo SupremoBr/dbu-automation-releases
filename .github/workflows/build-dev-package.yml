@@ -35,7 +35,9 @@ jobs:
             rsync -a .build-dev/overlay/ /tmp/dbu-dev-package/
           fi
 
-          cp .build-dev/package-module.json /tmp/dbu-dev-package/module.json
+          # Keep the installed package's update links identical to the
+          # public manifest, otherwise Foundry cannot detect future updates.
+          cp .build-dev/public-module.json /tmp/dbu-dev-package/module.json
           cp .build-dev/public-module.json dev/module.json
 
       - name: Validate JavaScript and relative imports
@@ -55,6 +57,10 @@ jobs:
           assert module["id"] == "dbu-automation-dev"
           expected = __import__("json").loads(Path(".build-dev/package-module.json").read_text(encoding="utf-8"))["version"]
           assert module["version"] == expected
+          public_manifest = __import__("json").loads(Path(".build-dev/public-module.json").read_text(encoding="utf-8"))
+          assert module == public_manifest, "Installed and public manifests must match"
+          assert module.get("manifest") == "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/dev/module.json", "Missing auto-update manifest"
+          assert module.get("download") == "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/dev/dbu-automation-dev.zip", "Missing download URL"
 
           languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
           assert languages.get("pt-BR") == "lang/pt-BR.json"

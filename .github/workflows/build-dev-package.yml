@@ -274,6 +274,12 @@ jobs:
           console.log('Draining per-token turn and No Energy tests: PASS');
           JS
 
+      - name: Smoke-test player-owned Transformation choices
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/scripts/test-transformation-decision.cjs
+
       - name: Rebuild and verify ZIP
         shell: bash
         run: |

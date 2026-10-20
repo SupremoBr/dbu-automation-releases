@@ -1,8 +1,8 @@
 {
   "id": "dbu-automation-dev",
   "title": "DBU Automation DEV",
-  "description": "DBU Automation v1.9.15 DEV — HUD DBZ 2.0 compacto: quatro abas inferiores fechadas, favoritos por token, Clash manual e Vida/Ki/Capacity no canto superior esquerdo (DBU 0.9.2).",
-  "version": "1.9.15",
+  "description": "DBU Automation v1.9.16 DEV — HUD DBZ 2.0 com botão de macros visuais, Transformation na aba Padrão e vida dos aliados em painel independente/arrastável opcional (DBU 0.9.2).",
+  "version": "1.9.16",
   "authors": [
     {
       "name": "DBU Automation"

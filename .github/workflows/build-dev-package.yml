@@ -389,7 +389,7 @@ jobs:
           const ui=readFileSync(root+'scripts/ui/action-windows.js','utf8');
           const css=readFileSync(root+'styles/dbu-action-windows.css','utf8');
           assert.match(c,/import \{ renderActionWindow, ACTION_WINDOW_DIALOG_OPTIONS \}/);
-          assert.equal((c.match(/content:\\s*dbuChargeWindow\\(/g)||[]).length,2,
+          assert.equal((c.match(/content:\s*dbuChargeWindow\(/g)||[]).length,2,
             'Energy Charge must have independent declaration and continuation windows');
           for(const id of ['dbu-charge-source','dbu-charge-cost','dbu-charge-type',
              'dbu-charge-gain','dbu-charge-count','dbu-charge-ignore-max']){

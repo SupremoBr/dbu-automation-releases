@@ -265,10 +265,10 @@ jobs:
           assert.equal(exhausted.system.transformations[0].active,false);
           assert.equal(exhausted.system.conditions.find(c=>c.id==='stressExhaustion')?.active,true);
           const round = readFileSync('/tmp/dbu-dev-package/scripts/core/round-hooks.js','utf8');
-          assert(round.includes('await applyTransformationTurnUpkeep(combat, combatant)'));
+          assert(round.includes('await requestTransformationDecision(combat, combatant)'), 'Draining must ask owner rather than auto-debit');
           assert(round.includes('turnChanged'));
           const pay = readFileSync('/tmp/dbu-dev-package/scripts/bridge/native-dbu.js','utf8');
-          assert(pay.includes('payType === "draining" && game.combat?.started'), 'native manual Pay must be disabled during automatic upkeep');
+          assert(pay.includes('payType === "draining" && game.combat?.started'), 'native manual Pay must be disabled while choices are pending');
           const tf = readFileSync('/tmp/dbu-dev-package/scripts/transformations.js','utf8');
           assert(tf.includes('sem ${isGodKiForm ? "Divine Ki" : "Ki"}'), 'No Energy entry guard missing');
           console.log('Draining per-token turn and No Energy tests: PASS');

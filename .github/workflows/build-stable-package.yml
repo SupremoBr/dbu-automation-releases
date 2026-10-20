@@ -22,7 +22,23 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/dbu-stable-package
           mkdir -p /tmp/dbu-stable-package
-          unzip -q stable/dbu-automation.zip -d /tmp/dbu-stable-package
+          if [ -f .build-stable/promote-dev.txt ]; then
+            # Promote the tested DEV ZIP as a whole, not an incomplete source
+            # overlay: Intervene/Reflect includes packaging-time integrations.
+            DEV_VERSION="$(python3 -c 'import json; print(json.load(open("dev/module.json"))["version"])')"
+            REQUIRED_VERSION="$(cat .build-stable/promote-dev.txt)"
+            [ "$DEV_VERSION" = "$REQUIRED_VERSION" ] || {
+              echo "DEV version mismatch: expected $REQUIRED_VERSION, got $DEV_VERSION"
+              exit 1
+            }
+            unzip -q dev/dbu-automation-dev.zip -d /tmp/dbu-stable-package
+            while IFS= read -r -d '' file; do
+              sed -i 's/const MODULE_ID = "dbu-automation-dev";/const MODULE_ID = "dbu-automation";/g' "$file"
+              sed -i 's/const DBU_SOCKET = "module.dbu-automation-dev";/const DBU_SOCKET = "module.dbu-automation";/g' "$file"
+            done < <(find /tmp/dbu-stable-package/scripts -type f -name '*.js' -print0)
+          else
+            unzip -q stable/dbu-automation.zip -d /tmp/dbu-stable-package
+          fi
 
           if [ -d .build-stable/overlay ]; then
             rsync -a .build-stable/overlay/ /tmp/dbu-stable-package/
@@ -57,6 +73,10 @@ jobs:
           assert module["id"] == "dbu-automation"
           expected = json.loads(Path(".build-stable/package-module.json").read_text(encoding="utf-8"))["version"]
           assert module["version"] == expected
+          public_manifest = json.loads(Path(".build-stable/public-module.json").read_text(encoding="utf-8"))
+          assert module == public_manifest, "Installed Stable and public manifests must match"
+          assert module.get("manifest") == "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/stable/module.json"
+          assert module.get("download") == "https://raw.githubusercontent.com/SupremoBr/dbu-automation-releases/main/stable/dbu-automation.zip"
 
           languages = {x["lang"]: x["path"] for x in module.get("languages", [])}
           assert languages.get("pt-BR") == "lang/pt-BR.json"

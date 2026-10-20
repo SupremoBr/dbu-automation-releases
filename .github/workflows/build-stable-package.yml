@@ -113,6 +113,30 @@ jobs:
               sys.exit(1)
           PY
 
+      - name: Verify promoted DEV package parity
+        if: ${{ hashFiles('.build-stable/promote-dev.txt') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          root=Path('/tmp/dbu-stable-package')
+          with ZipFile('dev/dbu-automation-dev.zip') as source:
+              for item in source.infolist():
+                  if item.is_dir() or item.filename == 'module.json':
+                      continue
+                  path = root / item.filename
+                  expected=source.read(item.filename)
+                  if item.filename.startswith('scripts/') and item.filename.endswith('.js'):
+                      expected=(expected.decode('utf-8')
+                        .replace('const MODULE_ID = "dbu-automation-dev";','const MODULE_ID = "dbu-automation";')
+                        .replace('const DBU_SOCKET = "module.dbu-automation-dev";','const DBU_SOCKET = "module.dbu-automation";')
+                        .encode('utf-8'))
+                  assert path.read_bytes() == expected, f'Unexpected promoted file difference: {item.filename}'
+          print('Full DEV-to-Stable package parity: PASS')
+          PY
+
       - name: Rebuild and verify Stable ZIP
         shell: bash
         run: |

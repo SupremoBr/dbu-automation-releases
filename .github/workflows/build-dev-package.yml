@@ -197,6 +197,83 @@ jobs:
           console.log('Token identity smoke tests: PASS');
           JS
 
+      - name: Smoke-test Transformation entry and upkeep
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const source = readFileSync('/tmp/dbu-dev-package/scripts/core/transformation-upkeep.js','utf8');
+          const upkeep = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+          let messages = 0;
+          globalThis.ChatMessage = {getSpeaker: () => ({}), create: async () => {messages++;}};
+          globalThis.foundry = {utils:{deepClone: x => structuredClone(x)}};
+          globalThis.ui = {notifications:{warn:()=>{}}};
+          const fakeActor = (id, tokenId, ki=35, draining=9, god=false) => {
+            const a = {
+              id, token:{id:tokenId}, name:'Boneco',
+              flags:{},
+              system:{
+                kiPool:{value:ki},
+                divineKiPoints:{value:25},
+                godKi:{active:god},
+                status:{capacitySpent:5},
+                aspectEffects:{drainingKiPerTurn:draining},
+                transformations:[{name:'Test Form',active:true,transformationType:'form_alternate'}],
+                conditions:[]
+              },
+              getFlag(_scope,key){return this.flags[key]},
+              async update(changes){
+                for(const [key,v] of Object.entries(changes)) {
+                  if(key === 'system.kiPool.value') this.system.kiPool.value=v;
+                  if(key === 'system.divineKiPoints.value') this.system.divineKiPoints.value=v;
+                  if(key === 'flags.world.dbuaDrainingTurn') this.flags.dbuaDrainingTurn=v;
+                  if(key === 'flags.world.dbuaNoEnergyStressExpiry') this.flags.dbuaNoEnergyStressExpiry=v;
+                  if(key === 'system.conditions') this.system.conditions=v;
+                  if(key === 'system.transformations') this.system.transformations=v;
+                }
+              }
+            };
+            return a;
+          };
+          const combat = {id:'combat',round:2};
+          const one = fakeActor('shared','monster-1');
+          const two = fakeActor('shared','monster-2');
+          const c1 = {id:'c1',actor:one,tokenId:'monster-1'};
+          const c2 = {id:'c2',actor:two,tokenId:'monster-2'};
+          assert.equal(upkeep.drainingForActor(one), 9);
+          await upkeep.applyTransformationTurnUpkeep(combat,c1);
+          assert.equal(one.system.kiPool.value,26);
+          assert.equal(one.system.status.capacitySpent,5);
+          assert.equal(two.system.kiPool.value,35);
+          await upkeep.applyTransformationTurnUpkeep(combat,c1);
+          assert.equal(one.system.kiPool.value,26,'same turn must not be debited twice');
+          await upkeep.applyTransformationTurnUpkeep(combat,c2);
+          assert.equal(two.system.kiPool.value,26,'other cloned token must pay its own upkeep');
+          assert.equal(messages,2,'two tokens should each show one upkeep message');
+          combat.round=3;
+          await upkeep.applyTransformationTurnUpkeep(combat,c1);
+          assert.equal(one.system.kiPool.value,17);
+          const divine = fakeActor('shared','monster-3',20,9,true);
+          await upkeep.applyTransformationTurnUpkeep(combat,{id:'c3',actor:divine,tokenId:'monster-3'});
+          assert.equal(divine.system.kiPool.value,11);
+          assert.equal(divine.system.divineKiPoints.value,20,'God Ki Draining must also reduce DKP');
+          const exhausted = fakeActor('shared','monster-4',3,9);
+          await upkeep.applyTransformationTurnUpkeep(combat,{id:'c4',actor:exhausted,tokenId:'monster-4'});
+          assert.equal(exhausted.system.kiPool.value,0);
+          assert.equal(exhausted.system.transformations[0].active,false);
+          assert.equal(exhausted.system.conditions.find(c=>c.id==='stressExhaustion')?.active,true);
+          const round = readFileSync('/tmp/dbu-dev-package/scripts/core/round-hooks.js','utf8');
+          assert(round.includes('await applyTransformationTurnUpkeep(combat, combatant)'));
+          assert(round.includes('turnChanged'));
+          const pay = readFileSync('/tmp/dbu-dev-package/scripts/bridge/native-dbu.js','utf8');
+          assert(pay.includes('payType === "draining" && game.combat?.started'), 'native manual Pay must be disabled during automatic upkeep');
+          const tf = readFileSync('/tmp/dbu-dev-package/scripts/transformations.js','utf8');
+          assert(tf.includes('sem ${isGodKiForm ? "Divine Ki" : "Ki"}'), 'No Energy entry guard missing');
+          console.log('Draining per-token turn and No Energy tests: PASS');
+          JS
+
       - name: Rebuild and verify ZIP
         shell: bash
         run: |

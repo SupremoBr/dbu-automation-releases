@@ -295,7 +295,7 @@ jobs:
           const root='/tmp/dbu-dev-package/';
           const manifest=JSON.parse(readFileSync(root+'module.json','utf8'));
           assert(manifest.styles.includes('styles/dbu-hud-v2.css'),'HUD V2 CSS must load');
-          assert.equal(manifest.version,'1.9.16');
+          assert.equal(manifest.version,'1.9.17');
           const text=readFileSync(root+'scripts/hud-v2-menu.js','utf8');
           const menu=await import('data:text/javascript;base64,'+Buffer.from(text).toString('base64'));
           assert.deepEqual(menu.HUD_V2_TABS.map(t=>t.id),['standard','counter','instant','favorites']);
@@ -330,6 +330,48 @@ jobs:
           assert(hud.includes('hudV2Panel({tab:state.hudTab'),'V2 panel renderer must be connected');
           assert(!hud.includes('dbua-v180-body'),'old oversized dock must not be rendered');
           console.log('HUD DBZ 2.0 smoke tests: PASS');
+          JS
+
+      - name: Smoke-test individual Action Windows 2.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const root='/tmp/dbu-dev-package/';
+          const manifest=JSON.parse(readFileSync(root+'module.json','utf8'));
+          assert(manifest.styles.includes('styles/dbu-action-windows.css'), 'Action Window CSS missing');
+          const source=readFileSync(root+'scripts/ui/action-windows.js','utf8');
+          const aw=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+          const power=aw.renderActionWindow({
+            actorName:'Boneco',actionName:'POWER UP',type:'STANDARD MANEUVER',
+            current:[{label:'Power atual',value:'0/2'}],
+            effects:[{label:'Stacks',value:'+1'}],
+            preview:[{label:'Após uso',value:'1/2'}],
+            notes:['Máximo de stacks 2'],cost:'1 Action'
+          });
+          assert(power.includes('POWER UP'));
+          assert(power.includes('Power atual'));
+          assert(power.includes('PRÉVIA DO RESULTADO'));
+          assert(power.includes('Máximo de stacks 2'));
+          assert(!power.includes('Energy Charge') && !power.includes('Combat Recovery'),'individual windows must not display other maneuvers');
+          assert(!power.includes('data-dbu-hud-tab'),'no action selector sidebar allowed');
+          assert(aw.ACTION_WINDOW_DIALOG_OPTIONS.classes.includes('dbua-action-window-dialog'));
+          const escaped=aw.renderActionWindow({actorName:'<img src=x onerror=1>',actionName:'Power Up'});
+          assert(!escaped.includes('actorName="<img'),'unsafe string');
+          assert(escaped.includes('&lt;img'), 'actor name must be escaped');
+          const actions=readFileSync(root+'scripts/standard-actions.js','utf8');
+          assert(actions.includes('const windowContent = renderActionWindow({'), 'Power Up window must use new renderer');
+          assert(actions.includes('data-dbua-power-preview'), 'Power Up preview must be reactive');
+          assert(actions.includes('Renovar duração: remover 1 stack'), 'Power Up must preserve stack refresh');
+          assert(actions.includes('data-dbua-recovery-dice'), 'Combat Recovery must preview the dice pool');
+          assert(actions.includes('Condition Recovery (não recuperar LP)'), 'Recovery option must be retained');
+          assert(actions.includes('const room = Math.max(0, rules.maxStacks - stacks);'), 'Power Up execution unchanged');
+          assert(actions.includes('const recoveryFormula ='), 'Combat Recovery rolling unchanged');
+          const css=readFileSync(root+'styles/dbu-action-windows.css','utf8');
+          assert(css.includes('.dbua-action-window-dialog .dialog-buttons'), 'Foundry dialog footer styling missing');
+          console.log('Action Windows 2.0 smoke tests: PASS');
           JS
 
       - name: Rebuild and verify ZIP

@@ -99,7 +99,7 @@ async function main() {
 
   combat.combatant=two;
   assert.equal(await mod.requestTransformationDecision(combat,two),true);
-  assert.equal(seq,3,"second token also has a private decision card (plus upkeep confirmation)");
+  assert.equal(seq,2,"one private decision card per token, without duplicate public upkeep message");
   const pending=[...messages.values()].filter(m=>m.getFlag("world","dbuaTransformationDecision")?.status==="pending");
   assert.equal(pending.length,1);
   const exitMessage=pending[0];

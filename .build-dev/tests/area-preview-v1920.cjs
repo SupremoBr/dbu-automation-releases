@@ -11,7 +11,8 @@ const attack = fs.readFileSync(path.join(root, "scripts/attack.js"), "utf8");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "module.json"), "utf8"));
 assert(["1.9.20","1.9.21"].includes(manifest.version));
 assert(area.includes('import { previewMeasuredTemplate } from "./area-preview.js";'));
-assert(area.includes('const mode = forceAttackerOrigin ? "aim" : fixed ? "center" : "place";'));
+assert(area.includes('const mode = remoteCone ? "origin-aim" : forceAttackerOrigin ? "aim" : fixed ? "center" : "place";'),
+  "v1.9.21 retains original placement modes and adds remote Cone variant");
 assert(area.indexOf("if (cfg.useSelected)") < area.indexOf("await previewMeasuredTemplate"));
 assert(area.indexOf("if (geo.cataclysmic)") < area.indexOf("await previewMeasuredTemplate"));
 assert(area.indexOf("await previewMeasuredTemplate") < area.indexOf("template = await createTemplate"));

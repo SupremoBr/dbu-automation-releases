@@ -32,7 +32,10 @@ jobs:
           done < <(find /tmp/dbu-dev-package/scripts -type f -name '*.js' -print0)
 
           if [ -d .build-dev/overlay ]; then
-            rsync -a .build-dev/overlay/ /tmp/dbu-dev-package/
+            # --checksum: source and Stable often have same-sized files (main.js)
+            # whose timestamps cannot identify changed version text.
+            rsync -a --checksum .build-dev/overlay/ /tmp/dbu-dev-package/
+            cmp .build-dev/overlay/scripts/main.js /tmp/dbu-dev-package/scripts/main.js
           fi
 
           # Stable v1.9.14 now already contains the migrated Intervene/

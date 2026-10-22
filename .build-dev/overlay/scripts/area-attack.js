@@ -10,7 +10,7 @@ import { previewMeasuredTemplate } from "./area-preview.js";
 // ============================================================
 
 const VERSION = "1.9.20 DEV";
-const MODULE_ID = "dbu-automation";
+const MODULE_ID = "dbu-automation-dev";
 
 const MAGNITUDES = Object.freeze({
   0: { value: 0, key: "minor", label: "Minor" },

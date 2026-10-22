@@ -13,6 +13,11 @@ const grapple = read("scripts/standard-actions.js");
 const aw = read("scripts/ui/action-windows.js");
 const css = read("styles/dbu-action-windows.css");
 const main = read("scripts/main.js");
+console.log("DBU v1919 retained-test diagnostic", {
+  manifest: manifest.version,
+  runtime: main.match(/const VERSION\\s*=\\s*["']([^"']+)["']/)?.[1] || "not found",
+  runtimeBytes: main.length
+});
 assert(main.includes('const VERSION = "' + manifest.version + '"'), 'Module runtime version matches DEV manifest');
 assert(aura.includes('import { renderActionWindow, ACTION_WINDOW_DIALOG_OPTIONS }'));
 assert(aura.includes('actionName: "SIGNATURE AURA"'));

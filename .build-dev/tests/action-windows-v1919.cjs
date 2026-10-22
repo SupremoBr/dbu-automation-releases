@@ -6,7 +6,7 @@ const { join } = require("node:path");
 const root = process.env.DBUA_TEST_ROOT || join(__dirname, "..");
 const read = file => readFileSync(join(root, file), "utf8");
 const manifest = JSON.parse(read("module.json"));
-assert.equal(manifest.version, "1.9.19");
+assert(["1.9.19", "1.9.20"].includes(manifest.version), "Action Windows 1.9.19 must remain compatible with newer DEV");
 assert(manifest.styles.includes("styles/dbu-action-windows.css"));
 const aura = read("scripts/signature-aura.js");
 const grapple = read("scripts/standard-actions.js");

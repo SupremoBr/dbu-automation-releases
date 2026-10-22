@@ -13,7 +13,7 @@ const grapple = read("scripts/standard-actions.js");
 const aw = read("scripts/ui/action-windows.js");
 const css = read("styles/dbu-action-windows.css");
 const main = read("scripts/main.js");
-assert(main.includes('const VERSION = "1.9.19"'));
+assert(main.includes('const VERSION = "' + manifest.version + '"'), 'Module runtime version matches DEV manifest');
 assert(aura.includes('import { renderActionWindow, ACTION_WINDOW_DIALOG_OPTIONS }'));
 assert(aura.includes('actionName: "SIGNATURE AURA"'));
 assert(aura.includes('data-dbua-aura-activation'));

@@ -16,7 +16,10 @@ const main = read("scripts/main.js");
 console.log("DBU v1919 retained-test diagnostic", {
   manifest: manifest.version,
   runtime: main.match(/const VERSION\\s*=\\s*["']([^"']+)["']/)?.[1] || "not found",
-  runtimeBytes: main.length
+  runtimeBytes: main.length,
+  runtimeHead: main.slice(0, 180),
+  versionSnippet: main.slice(Math.max(0, main.indexOf("const VERSION") - 40), main.indexOf("const VERSION") + 85),
+  exactMatch: main.includes('const VERSION = "' + manifest.version + '"')
 });
 assert(main.includes('const VERSION = "' + manifest.version + '"'), 'Module runtime version matches DEV manifest');
 assert(aura.includes('import { renderActionWindow, ACTION_WINDOW_DIALOG_OPTIONS }'));
